@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Candy Stock Management</title>
+  <style>
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+
+    th {
+      background-color: #f2f2f2;
+    }
+  </style>
+</head>
+<body>
+  
+  <h1>Candy Stock Management</h1>
+
+  <label for="candyName">Candy Name:</label>
+  <input type="text" id="candyName">
+
+  <label for="description">Description:</label>
+  <input type="text" id="description">
+
+  <label for="price">Price:</label>
+  <input type="text" id="price">
+
+  <label for="quantity">Quantity:</label>
+  <input type="number" id="quantity" min="1" value="1">
+
+  <button onclick="addItem()">Add Item</button>
+
+  <br><br>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Candy Name</th>
+        <th>Description</th>
+        <th>Price</th>
+        <th>Quantity</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="candyList"></tbody>
+  </table>
+  
+  <script>
+    const api_url = 'https://crudcrud.com/api/2543ab1341434ccea4fcda59557dc421/candy123'; // Ensure this URL is correct
+
+    // Fetch candies from the API and display them
+    async function fetchCandies() {
+      try {
+        const response = await fetch(api_url);
+        if (!response.ok) throw new Error(`Error: ${response.statusText}`);
+        const candies = await response.json();
+        console.log('Candies fetched:', candies); // Debug log
+        displayCandies(candies);
+      } catch (error) {
+        console.error('Error fetching candies:', error);
+      }
+    }
+
+    // Display candies in the table
+    function displayCandies(candies) {
+      const candyList = document.getElementById('candyList');
+      candyList.innerHTML = '';
+
+      candies.forEach(candy => {
+        const row = candyList.insertRow();
+        row.innerHTML = `
+          <td>${candy.candyName || 'N/A'}</td>
+          <td>${candy.description || 'N/A'}</td>
+          <td>${candy.price || 'N/A'}</td>
+          <td id="quantity_${candy._id}">${candy.quantity || 'N/A'}</td>
+          <td>
+            <button onclick="editItem('${candy._id}')">Edit</button>
+            <button onclick="deleteItem('${candy._id}')">Delete</button>
+            <button onclick="buyCandy('${candy._id}', 1)">Buy 1</button>
+            <button onclick="buyCandy('${candy._id}', 2)">Buy 2</button>
+            <button onclick="buyCandy('${candy._id}', 3)">Buy 3</button>
+          </td>
+        `;
+      });
+    }
+
+    // Add a new candy item to the stock
+    async function addItem() {
+      const candyName = document.getElementById('candyName').value;
+      const description = document.getElementById('description').value;
+      const price = document.getElementById('price').value;
+      const quantity = document.getElementById('quantity').value;
+
+      console.log('Adding item:', { candyName, description, price, quantity }); // Debug log
+
+      try {
+        const response = await fetch(api_url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            candyName,
+            description,
+            price,
+            quantity,
+          }),
+        });
+
+        if (!response.ok) throw new Error(`Error: ${response.statusText}`);
+
+        // Clear input fields
+        document.getElementById('candyName').value = '';
+        document.getElementById('description').value = '';
+        document.getElementById('price').value = '';
+        document.getElementById('quantity').value = '1';
+
+        // Refresh candy list
+        await fetchCandies();
+      } catch (error) {
+        console.error('Error adding item:', error);
+      }
+    }
+
+    // Edit an existing candy item
+    async function editItem(candyId) {
+      try {
+        // Fetch the current candy details
+        const response = await fetch(`${api_url}/${candyId}`);
+        if (!response.ok) throw new Error(`Error fetching candy: ${response.statusText}`);
+        const candy = await response.json();
+
+        // Prompt for new values; if the user leaves a field blank, keep the original value
+        const candyName = prompt('Enter new candy name:', candy.candyName) || candy.candyName;
+        const description = prompt('Enter new description:', candy.description) || candy.description;
+        const price = prompt('Enter new price:', candy.price) || candy.price;
+        const quantity = prompt('Enter new quantity:', candy.quantity) || candy.quantity;
+
+        // Update the candy item
+        const updateResponse = await fetch(`${api_url}/${candyId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            candyName,
+            description,
+            price,
+            quantity,
+          }),
+        });
+
+        if (!updateResponse.ok) throw new Error(`Error: ${updateResponse.statusText}`);
+
+        // Refresh the candy list
+        await fetchCandies();
+      } catch (error) {
+        console.error('Error editing item:', error);
+      }
+    }
+
+    // Delete a candy item
+    async function deleteItem(candyId) {
+      try {
+        const response = await fetch(`${api_url}/${candyId}`, {
+          method: 'DELETE',
+        });
+
+        if (!response.ok) throw new Error(`Error deleting item: ${response.statusText}`);
+
+        // Refresh candy list
+        await fetchCandies();
+      } catch (error) {
+        console.error('Error deleting item:', error);
+      }
+    }
+
+    // Update the quantity of a candy item
+    async function buyCandy(candyId, count) {
+      console.log(`Buying ${count} of candy with ID: ${candyId}`); // Log to verify parameters
+
+      try {
+        // Fetch the candy details
+        const response = await fetch(`${api_url}/${candyId}`);
+        if (!response.ok) throw new Error(`Error fetching candy: ${response.statusText}`);
+        const candy = await response.json();
+
+        // Update the quantity
+        const currentQuantity = parseInt(candy.quantity, 10);
+        const newQuantity = currentQuantity - count;
+
+        if (newQuantity < 0) {
+          console.log('Not enough stock');
+          alert('Not enough stock available');
+          return;
+        }
+
+        // Update the candy details
+        const updateResponse = await fetch(`${api_url}/${candyId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            candyName: candy.candyName, // Preserve the candy details
+            description: candy.description,
+            price: candy.price,
+            quantity: newQuantity
+          }),
+        });
+        
+        if (!updateResponse.ok) {
+          throw new Error(`Error updating item: ${updateResponse.statusText}`);
+        } else {
+          console.log(`Bought ${count} candy successfully`);
+        }
+
+        // Refresh candy list
+        await fetchCandies();
+      } catch (error) {
+        console.error('Error buying item:', error);
+      }
+    }
+
+    // Initial fetch
+    fetchCandies();
+  </script>
+  
+</body>
+</html>
